@@ -1,0 +1,19 @@
+[package]
+name = "seed-autocomplete"
+version = "0.1.0"
+authors = ["Mike Bush <platy@njk.onl"]
+edition = "2018"
+
+
+[dependencies]
+seed = { git = "https://github.com/seed-rs/seed", rev = "b25cf59" }
+
+[dependencies.web-sys]
+version = "0.3.32"
+features = [
+    "Element",
+    "Window",
+    "CssStyleDeclaration",
+    "DomRect",
+    "DomRectReadOnly",
+]
