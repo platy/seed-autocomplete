@@ -41,7 +41,7 @@ impl Default for CountrySearch {
     }
 }
 
-/// wrap celes::Country in new type to reimplement Display without removing spaces
+/// wrap `celes::Country` in new type to reimplement Display without removing spaces
 #[derive(Clone, Debug)]
 pub struct Country(pub celes::Country);
 
@@ -55,8 +55,7 @@ impl CountrySearch {
     pub fn prefix_lookup(&self, prefix: &str) -> Vec<Country> {
         self.prefixes
             .prefix_iter(&prefix.to_lowercase())
-            .map(|(_k, v)| v)
-            .flatten()
+            .flat_map(|(_k, v)| v)
             .cloned()
             .collect::<BTreeSet<_>>()
             .into_iter()

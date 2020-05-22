@@ -1,6 +1,7 @@
+#![deny(clippy::pedantic)]
 #![allow(clippy::wildcard_imports)]
 
-use country_search::*;
+use country_search::{Country, CountrySearch};
 use seed::app::message_mapper::MessageMapper;
 use seed::{prelude::*, *};
 use seed_autocomplete as autocomplete;
@@ -19,22 +20,28 @@ struct Model {
 #[derive(Clone)]
 enum Msg {
     /// Wraps messages addressed to the autocomplete component
-    CountryAutocomplete(autocomplete::Msg),
+    Autocomplete(autocomplete::Msg),
     /// Autocomplete notifies us that the search contents have changed so we can update the suggestions
-    CountryInputChange(autocomplete::InputChanged),
+    InputChange(autocomplete::InputChanged),
     /// Autocomplete notifies us that the user has made a selection
-    CountrySelected(autocomplete::SuggestionSelected),
+    Selected(autocomplete::SuggestionSelected),
+}
+
+fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
+    orders.subscribe(Msg::InputChange);
+    orders.subscribe(Msg::Selected);
+    Model::default()
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
-        Msg::CountryInputChange(autocomplete::InputChanged(value)) => {
-            if value.len() >= 1 {
+        Msg::InputChange(autocomplete::InputChanged(value)) => {
+            if !value.is_empty() {
                 let suggestions = model.country_search.prefix_lookup(&value);
                 model.country_autocomplete.set_suggestions(suggestions);
             }
         }
-        Msg::CountrySelected(autocomplete::SuggestionSelected) => {
+        Msg::Selected(autocomplete::SuggestionSelected) => {
             let selection = model.country_autocomplete.get_selection();
             if let Some(Country(selection)) = selection.cloned() {
                 model
@@ -43,10 +50,10 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.selected_country = Some(selection);
             }
         }
-        Msg::CountryAutocomplete(msg) => autocomplete::update(
+        Msg::Autocomplete(msg) => autocomplete::update(
             msg,
             &mut model.country_autocomplete,
-            &mut orders.proxy(Msg::CountryAutocomplete),
+            &mut orders.proxy(Msg::Autocomplete),
         ),
     }
 }
@@ -56,9 +63,9 @@ fn view(model: &Model) -> Vec<Node<Msg>> {
         div![
             "Search for a country name, alias or ISO 3166-1 code:",
             // the view for the autocomplete box, adding it into the vdom
-            autocomplete::view(&model.country_autocomplete).map_msg(Msg::CountryAutocomplete),
-        ]
-        if let Some(selected_country) = &model.selected_country {
+            autocomplete::view(&model.country_autocomplete).map_msg(Msg::Autocomplete),
+        ],
+        model.selected_country.as_ref().map(|selected_country| {
             div![
                 h3![&selected_country.long_name],
                 ul![
@@ -72,21 +79,11 @@ fn view(model: &Model) -> Vec<Node<Msg>> {
                     ],
                 ],
             ]
-        } else {
-            div![]
-        }
+        }),
     ]
-}
-
-fn after_mount(_: Url, orders: &mut impl Orders<Msg>) -> AfterMount<Model> {
-    orders.subscribe(Msg::CountryInputChange);
-    orders.subscribe(Msg::CountrySelected);
-    AfterMount::default()
 }
 
 #[wasm_bindgen(start)]
 pub fn start() {
-    App::builder(update, view)
-        .after_mount(after_mount)
-        .build_and_start();
+    App::start("app", init, update, view);
 }

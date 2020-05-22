@@ -117,7 +117,7 @@ pub fn update<Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Suggestio
                     if model.suggestions.is_empty() {
                         return;
                     }
-                    let index = model.highlighted_index.unwrap_or(model.suggestions.len());
+                    let index = model.highlighted_index.unwrap_or_else(|| model.suggestions.len());
                     if index > 0 {
                         model.highlighted_index = Some(index - 1);
                         model.is_open = true;
@@ -132,7 +132,6 @@ pub fn update<Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Suggestio
                     model.ignore_blur = false;
                     if !model.is_open {
                         // menu is closed so there is no selection to accept -> do nothing
-                        return;
                     } else if let Some(highlighted_index) = model.highlighted_index {
                         // text entered + menu item has been highlighted + enter is hit -> update value to that of selected menu item, close the menu
                         kb_ev.prevent_default();
@@ -202,22 +201,7 @@ fn get_computed_style_float(
 }
 
 pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
-    let mut menu_style = if let Some(node) = model.input_ref.get() {
-        let node: Element = node.into();
-        let rect = node.get_bounding_client_rect();
-        let computed_style = window().get_computed_style(&node).unwrap().unwrap();
-        let margin_bottom = get_computed_style_float(&computed_style, "marginBottom").unwrap_or(0.);
-        let margin_left = get_computed_style_float(&computed_style, "marginLeft").unwrap_or(0.);
-        let margin_right = get_computed_style_float(&computed_style, "marginRight").unwrap_or(0.);
-        style! {
-            St::Left => format!("{}px", rect.left() + margin_left),
-            St::Top => format!("{}px", rect.bottom() + margin_bottom),
-            St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
-        }
-    } else {
-        style! {}
-    };
-    menu_style.merge(style! {
+    let mut menu_style = style! {
       St::BorderRadius => "3px",
       St::BoxShadow => "0 2px 12px rgba(0, 0, 0, 0.1)",
       St::Background => "rgba(255, 255, 255, 0.9)",
@@ -226,7 +210,20 @@ pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
       St::Position => "fixed",
       St::Overflow => "auto",
       St::MaxHeight => "50%", // TODO: don't cheat, let it flow to the bottom
-    });
+    };
+    if let Some(node) = model.input_ref.get() {
+        let node: Element = node.into();
+        let rect = node.get_bounding_client_rect();
+        let computed_style = window().get_computed_style(&node).unwrap().unwrap();
+        let margin_bottom = get_computed_style_float(&computed_style, "marginBottom").unwrap_or(0.);
+        let margin_left = get_computed_style_float(&computed_style, "marginLeft").unwrap_or(0.);
+        let margin_right = get_computed_style_float(&computed_style, "marginRight").unwrap_or(0.);
+        menu_style.merge(style! {
+            St::Left => format!("{}px", rect.left() + margin_left),
+            St::Top => format!("{}px", rect.bottom() + margin_bottom),
+            St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
+        });
+    }
     nodes![
         input![
             el_ref(&model.input_ref),
@@ -262,7 +259,7 @@ pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
                 ev(Ev::MouseLeave, |_| Msg::SetIgnoreBlur(false)),
             ]
         } else {
-            div![]
+            empty![]
         },
     ]
 }
