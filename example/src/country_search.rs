@@ -10,7 +10,7 @@ pub struct CountrySearch {
 }
 
 impl Default for CountrySearch {
-    fn default() -> CountrySearch {
+    fn default() -> Self {
         let entries = celes::Country::get_countries();
         let mut prefixes = TSTMap::new();
 
@@ -37,7 +37,7 @@ impl Default for CountrySearch {
             }
         }
 
-        CountrySearch { entries, prefixes }
+        Self { entries, prefixes }
     }
 }
 

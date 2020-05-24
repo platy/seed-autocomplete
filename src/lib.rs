@@ -3,15 +3,12 @@ use seed::*;
 use web_sys::{Element, HtmlInputElement};
 use core::fmt::Display;
 
-/// Subscribe to be notified when the input is changed - use this to know when to update the suggestions. The parameter is the value of the input box
-#[derive(Clone)]
-pub struct InputChanged(pub String);
-/// Subcribe to be notified when the user selects a suggestion, retrieve the suggestion from `Model::get_selection()`
-#[derive(Clone)]
-pub struct SuggestionSelected;
-
 /// Model of the autocomplete component, one of these is needed in your model for each autocomplete in the view
-pub struct Model<Suggestion> {
+pub struct Model<Ms, Suggestion = String> {
+    msg_mapper: fn(Msg) -> Ms,
+    input_changed: Box<dyn Fn(&str) -> Ms>,
+    suggestion_selected: Box<dyn Fn(&Suggestion) -> Option<Ms>>,
+
     input_ref: ElRef<HtmlInputElement>,
     input_value: String,
     selected: Option<Suggestion>,
@@ -24,7 +21,28 @@ pub struct Model<Suggestion> {
     ignore_focus: bool,
 }
 
-impl<Suggestion> Model<Suggestion> {
+impl<Ms, Suggestion> Model<Ms, Suggestion> {
+    pub fn new(
+        msg_mapper: fn(Msg) -> Ms,
+        input_changed: impl Fn(&str) -> Ms + 'static,
+        suggestion_selected: impl Fn(&Suggestion) -> Option<Ms> + 'static,
+    ) -> Self {
+        Self {
+            msg_mapper,
+            input_changed: Box::new(input_changed),
+            suggestion_selected: Box::new(suggestion_selected),
+
+            input_ref: Default::default(),
+            input_value: Default::default(),
+            selected: Default::default(),
+            suggestions: Default::default(),
+            is_open: Default::default(),
+            highlighted_index: Default::default(),
+            ignore_blur: Default::default(),
+            ignore_focus: Default::default(),
+        }
+    }
+
     /// Get the last selected suggestion
     pub fn get_selection(&self) -> Option<&Suggestion> {
         self.selected.as_ref()
@@ -41,22 +59,6 @@ impl<Suggestion> Model<Suggestion> {
     }
 }
 
-// the derive macro doesn't realise that providing Default is invariant in the type parameter Suggestion
-impl<Suggestion> Default for Model<Suggestion> {
-    fn default() -> Self {
-        Self {
-            input_ref: Default::default(),
-            input_value: Default::default(),
-            selected: Default::default(),
-            suggestions: Default::default(),
-            is_open: Default::default(),
-            highlighted_index: Default::default(),
-            ignore_blur: Default::default(),
-            ignore_focus: Default::default(),
-        }
-    }
-}
-
 #[derive(Clone)]
 pub enum Msg {
     InputFocus,
@@ -69,10 +71,10 @@ pub enum Msg {
     SetIgnoreBlur(bool),
 }
 
-pub fn update<Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Suggestion>, orders: &mut impl Orders<Msg>) {
+pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Ms, Suggestion>, orders: &mut impl Orders<Ms>) {
     match msg {
         Msg::InputChange(value) => {
-            orders.notify(InputChanged(value.clone()));
+            orders.send_msg((*model.input_changed)(&value));
             model.input_value = value;
         }
 
@@ -139,7 +141,7 @@ pub fn update<Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Suggestio
                         model.is_open = false;
                         model.highlighted_index = None;
                         model.selected = Some(item.clone());
-                        orders.notify(SuggestionSelected);
+                        (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
                     } else {
                         model.is_open = false;
                     }
@@ -182,7 +184,7 @@ pub fn update<Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Suggestio
             model.ignore_blur = false;
             model.is_open = false;
             model.highlighted_index = None;
-            orders.notify(SuggestionSelected);
+            (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
         }
     }
 }
@@ -200,7 +202,7 @@ fn get_computed_style_float(
         .and_then(parse)
 }
 
-pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
+pub fn view<Ms: 'static, Suggestion: Display>(model: &Model<Ms, Suggestion>) -> Vec<Node<Ms>> {
     let mut menu_style = style! {
       St::BorderRadius => "3px",
       St::BoxShadow => "0 2px 12px rgba(0, 0, 0, 0.1)",
@@ -224,6 +226,7 @@ pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
             St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
         });
     }
+
     nodes![
         input![
             el_ref(&model.input_ref),
@@ -261,5 +264,5 @@ pub fn view<Suggestion: Display>(model: &Model<Suggestion>) -> Vec<Node<Msg>> {
         } else {
             empty![]
         },
-    ]
+    ].map_msg(model.msg_mapper)
 }
