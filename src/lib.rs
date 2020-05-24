@@ -8,6 +8,7 @@ pub struct Model<Ms, Suggestion = String> {
     msg_mapper: fn(Msg) -> Ms,
     input_changed: Box<dyn Fn(&str) -> Ms>,
     suggestion_selected: Box<dyn Fn(&Suggestion) -> Option<Ms>>,
+    submit: Box<dyn Fn(&str) -> Option<Ms>>,
 
     input_ref: ElRef<HtmlInputElement>,
     input_value: String,
@@ -26,11 +27,13 @@ impl<Ms, Suggestion> Model<Ms, Suggestion> {
         msg_mapper: fn(Msg) -> Ms,
         input_changed: impl Fn(&str) -> Ms + 'static,
         suggestion_selected: impl Fn(&Suggestion) -> Option<Ms> + 'static,
+        submit: impl Fn(&str) -> Option<Ms> + 'static,
     ) -> Self {
         Self {
             msg_mapper,
             input_changed: Box::new(input_changed),
             suggestion_selected: Box::new(suggestion_selected),
+            submit: Box::new(submit),
 
             input_ref: Default::default(),
             input_value: Default::default(),
@@ -134,6 +137,7 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
                     model.ignore_blur = false;
                     if !model.is_open {
                         // menu is closed so there is no selection to accept -> do nothing
+                        (*model.submit)(&model.input_value).map(|msg| orders.send_msg(msg));
                     } else if let Some(highlighted_index) = model.highlighted_index {
                         // text entered + menu item has been highlighted + enter is hit -> update value to that of selected menu item, close the menu
                         kb_ev.prevent_default();
@@ -142,8 +146,10 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
                         model.highlighted_index = None;
                         model.selected = Some(item.clone());
                         (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
+                        (*model.submit)(&item.to_string()).map(|msg| orders.send_msg(msg));
                     } else {
                         model.is_open = false;
+                        (*model.submit)(&model.input_value).map(|msg| orders.send_msg(msg));
                     }
                 }
                 "Escape" => {
@@ -185,6 +191,7 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
             model.is_open = false;
             model.highlighted_index = None;
             (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
+            (*model.submit)(&item.to_string()).map(|msg| orders.send_msg(msg));
         }
     }
 }
