@@ -1,6 +1,6 @@
 //! Loads country data from the [celes](https://crates.io/crates/celes) crate with each of the ISO 3166-1 ways of referring to a country forming keys in a [ternary search tree](https://crates.io/crates/tst), allowing for prefix searches
+pub use celes::Country;
 use std::collections::BTreeSet;
-use std::fmt;
 use tst::TSTMap;
 
 pub struct CountrySearch {
@@ -41,16 +41,6 @@ impl Default for CountrySearch {
     }
 }
 
-/// wrap `celes::Country` in new type to reimplement Display without removing spaces
-#[derive(Clone, Debug)]
-pub struct Country(pub celes::Country);
-
-impl fmt::Display for Country {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0.long_name)
-    }
-}
-
 impl CountrySearch {
     pub fn prefix_lookup(&self, prefix: &str) -> Vec<Country> {
         self.prefixes
@@ -59,7 +49,7 @@ impl CountrySearch {
             .cloned()
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .map(|idx| Country(self.entries[idx].clone()))
+            .map(|idx| self.entries[idx].clone())
             .collect()
     }
 }

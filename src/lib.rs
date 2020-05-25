@@ -1,17 +1,19 @@
+use core::fmt::Display;
 use seed::prelude::*;
 use seed::*;
 use web_sys::{Element, HtmlInputElement};
-use core::fmt::Display;
+
+mod view_builder;
+pub use view_builder::ViewBuilder;
 
 /// Model of the autocomplete component, one of these is needed in your model for each autocomplete in the view
 pub struct Model<Ms, Suggestion = String> {
     msg_mapper: fn(Msg) -> Ms,
     input_changed: Box<dyn Fn(&str) -> Ms>,
     suggestion_selected: Box<dyn Fn(&Suggestion) -> Option<Ms>>,
-    submit: Box<dyn Fn(&str) -> Option<Ms>>,
+    submit: Box<dyn Fn() -> Option<Ms>>,
 
     input_ref: ElRef<HtmlInputElement>,
-    input_value: String,
     selected: Option<Suggestion>,
     suggestions: Vec<Suggestion>,
     is_open: bool,
@@ -22,12 +24,12 @@ pub struct Model<Ms, Suggestion = String> {
     ignore_focus: bool,
 }
 
-impl<Ms, Suggestion> Model<Ms, Suggestion> {
+impl<Ms: 'static, Suggestion> Model<Ms, Suggestion> {
     pub fn new(
         msg_mapper: fn(Msg) -> Ms,
         input_changed: impl Fn(&str) -> Ms + 'static,
         suggestion_selected: impl Fn(&Suggestion) -> Option<Ms> + 'static,
-        submit: impl Fn(&str) -> Option<Ms> + 'static,
+        submit: impl Fn() -> Option<Ms> + 'static,
     ) -> Self {
         Self {
             msg_mapper,
@@ -36,7 +38,6 @@ impl<Ms, Suggestion> Model<Ms, Suggestion> {
             submit: Box::new(submit),
 
             input_ref: Default::default(),
-            input_value: Default::default(),
             selected: Default::default(),
             suggestions: Default::default(),
             is_open: Default::default(),
@@ -56,9 +57,8 @@ impl<Ms, Suggestion> Model<Ms, Suggestion> {
         self.suggestions = suggestions;
     }
 
-    /// set the value in the input box
-    pub fn set_input_value(&mut self, value: String) {
-        self.input_value = value;
+    pub fn view(&self, attrs: Attrs) -> ViewBuilder<'_, Ms, Suggestion> {
+        ViewBuilder::new(self, attrs)
     }
 }
 
@@ -74,11 +74,14 @@ pub enum Msg {
     SetIgnoreBlur(bool),
 }
 
-pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Model<Ms, Suggestion>, orders: &mut impl Orders<Ms>) {
+pub fn update<Ms: 'static, Suggestion: Display + Clone>(
+    msg: Msg,
+    model: &mut Model<Ms, Suggestion>,
+    orders: &mut impl Orders<Ms>,
+) {
     match msg {
         Msg::InputChange(value) => {
             orders.send_msg((*model.input_changed)(&value));
-            model.input_value = value;
         }
 
         Msg::InputFocus => {
@@ -122,7 +125,9 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
                     if model.suggestions.is_empty() {
                         return;
                     }
-                    let index = model.highlighted_index.unwrap_or_else(|| model.suggestions.len());
+                    let index = model
+                        .highlighted_index
+                        .unwrap_or_else(|| model.suggestions.len());
                     if index > 0 {
                         model.highlighted_index = Some(index - 1);
                         model.is_open = true;
@@ -137,7 +142,7 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
                     model.ignore_blur = false;
                     if !model.is_open {
                         // menu is closed so there is no selection to accept -> do nothing
-                        (*model.submit)(&model.input_value).map(|msg| orders.send_msg(msg));
+                        (*model.submit)().map(|msg| orders.send_msg(msg));
                     } else if let Some(highlighted_index) = model.highlighted_index {
                         // text entered + menu item has been highlighted + enter is hit -> update value to that of selected menu item, close the menu
                         kb_ev.prevent_default();
@@ -146,10 +151,10 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
                         model.highlighted_index = None;
                         model.selected = Some(item.clone());
                         (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
-                        (*model.submit)(&item.to_string()).map(|msg| orders.send_msg(msg));
+                        (*model.submit)().map(|msg| orders.send_msg(msg));
                     } else {
                         model.is_open = false;
-                        (*model.submit)(&model.input_value).map(|msg| orders.send_msg(msg));
+                        (*model.submit)().map(|msg| orders.send_msg(msg));
                     }
                 }
                 "Escape" => {
@@ -191,7 +196,7 @@ pub fn update<Ms: 'static, Suggestion: Display + Clone>(msg: Msg, model: &mut Mo
             model.is_open = false;
             model.highlighted_index = None;
             (*model.suggestion_selected)(&item).map(|msg| orders.send_msg(msg));
-            (*model.submit)(&item.to_string()).map(|msg| orders.send_msg(msg));
+            (*model.submit)().map(|msg| orders.send_msg(msg));
         }
     }
 }
@@ -209,7 +214,11 @@ fn get_computed_style_float(
         .and_then(parse)
 }
 
-pub fn view<Ms: 'static, Suggestion: Display>(model: &Model<Ms, Suggestion>) -> Vec<Node<Ms>> {
+fn view<Ms: 'static, Suggestion>(
+    model: &Model<Ms, Suggestion>,
+    suggestion_view: impl Fn(&Suggestion, bool) -> Node<Ms>,
+    attrs: Attrs,
+) -> Vec<Node<Ms>> {
     let mut menu_style = style! {
       St::BorderRadius => "3px",
       St::BoxShadow => "0 2px 12px rgba(0, 0, 0, 0.1)",
@@ -234,42 +243,60 @@ pub fn view<Ms: 'static, Suggestion: Display>(model: &Model<Ms, Suggestion>) -> 
         });
     }
 
+    let msg_mapper = model.msg_mapper;
+
     nodes![
         input![
             el_ref(&model.input_ref),
-            attrs! {
-                At::Type => "search",
-                At::List => "station-suggestions",
-                At::Value => &model.input_value,
-            },
+            attrs,
             input_ev(Ev::Input, Msg::InputChange),
             // input_ev(Ev::Change, Msg::Change),
             ev(Ev::Focus, |_| Msg::InputFocus),
             input_ev(Ev::Blur, |_| Msg::InputBlur),
             keyboard_ev(Ev::KeyDown, Msg::InputKeyDown),
             mouse_ev(Ev::Click, Msg::InputClick),
-        ],
+        ]
+        .map_msg(msg_mapper),
         if model.is_open {
             div![
                 menu_style,
-                attrs! {
-                    At::Id => "station-suggestions",
-                },
-                model.suggestions.iter().enumerate().map(|(idx, suggestion)| div![
-                    style! {
-                        St::Background => if Some(idx) == model.highlighted_index { "lightgray" } else { "white" },
-                        St::Cursor => "default",
-                    },
-                    suggestion.to_string(),
-                    ev(Ev::MouseEnter, move |_| Msg::SuggestionHover(idx)),
-                    ev(Ev::Click, move |_| Msg::SuggestionClick(idx)),
-                ]),
-                ev(Ev::TouchStart, |_| Msg::SetIgnoreBlur(true)),
-                ev(Ev::MouseEnter, |_| Msg::SetIgnoreBlur(true)),
-                ev(Ev::MouseLeave, |_| Msg::SetIgnoreBlur(false)),
+                model
+                    .suggestions
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, suggestion)| {
+                        let mut suggestion_node =
+                            suggestion_view(suggestion, Some(idx) == model.highlighted_index);
+                        suggestion_node
+                            .add_event_handler(EventHandler::new(Ev::MouseEnter, move |_| {
+                                Some(msg_mapper(Msg::SuggestionHover(idx)))
+                            }));
+                        suggestion_node
+                            .add_event_handler(EventHandler::new(Ev::Click, move |_| {
+                                Some(msg_mapper(Msg::SuggestionClick(idx)))
+                            }));
+                        suggestion_node
+                    })
+                    .collect::<Vec<_>>(),
+                ev(Ev::TouchStart, |_| Msg::SetIgnoreBlur(true)).map_msg(msg_mapper),
+                ev(Ev::MouseEnter, |_| Msg::SetIgnoreBlur(true)).map_msg(msg_mapper),
+                ev(Ev::MouseLeave, |_| Msg::SetIgnoreBlur(false)).map_msg(msg_mapper),
             ]
         } else {
             empty![]
         },
-    ].map_msg(model.msg_mapper)
+    ]
+}
+
+pub fn default_suggestion_view<Suggestion: ToString, Ms>(
+    suggestion: &Suggestion,
+    is_highlighted: bool,
+) -> Node<Ms> {
+    div![
+        style! {
+            St::Background => if is_highlighted { "lightgray" } else { "white" },
+            St::Cursor => "default",
+        },
+        suggestion.to_string(),
+    ]
 }
