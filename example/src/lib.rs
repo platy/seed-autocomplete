@@ -3,7 +3,7 @@
 
 use country_search::{Country, CountrySearch};
 use seed::{prelude::*, *};
-use seed_autocomplete as autocomplete;
+use seed_autocomplete::{self as autocomplete, ViewBuilder};
 use tst::TSTSet;
 
 mod country_search;
@@ -156,7 +156,8 @@ fn view(model: &Model) -> Vec<Node<Msg>> {
                 // the view for the autocomplete box, adding it into the vdom
                 model
                     .search_autocomplete
-                    .view(attrs! {
+                    .view()
+                    .with_input_attrs(attrs! {
                         At::Value => &model.search_input_value,
                     })
                     .into_nodes(),
@@ -170,7 +171,7 @@ fn view(model: &Model) -> Vec<Node<Msg>> {
             div![
                 "Search for a Weekday:",
                 // the view for the autocomplete box, adding it into the vdom
-                model.weekday_autocomplete.view(attrs! {}).into_nodes(),
+                model.weekday_autocomplete.view().into_nodes(),
             ],
             model
                 .weekday_selected
@@ -181,7 +182,8 @@ fn view(model: &Model) -> Vec<Node<Msg>> {
             div![
                 "Search for a country name, alias or ISO 3166-1 code:",
                 // the view for the autocomplete box, adding it into the vdom
-                model.country_autocomplete.view(attrs! {
+                model.country_autocomplete.view()
+                .with_input_attrs(attrs! {
                     At::Type => "search",
                     At::Value => &model.country_input_value,
                 }).with_suggestion_view(|suggestion, is_highlighted| {

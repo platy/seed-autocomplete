@@ -4,7 +4,7 @@ use seed::*;
 use web_sys::{Element, HtmlInputElement};
 
 mod view_builder;
-pub use view_builder::ViewBuilder;
+pub use view_builder::{ViewBuilder, ViewBuilderDefault};
 
 /// Model of the autocomplete component, one of these is needed in your model for each autocomplete in the view
 pub struct Model<Ms, Suggestion = String> {
@@ -57,8 +57,8 @@ impl<Ms: 'static, Suggestion> Model<Ms, Suggestion> {
         self.suggestions = suggestions;
     }
 
-    pub fn view(&self, attrs: Attrs) -> ViewBuilder<'_, Ms, Suggestion> {
-        ViewBuilder::new(self, attrs)
+    pub fn view(&self) -> ViewBuilderDefault<'_, Ms, Suggestion> {
+        ViewBuilderDefault::new(self)
     }
 }
 
@@ -217,18 +217,9 @@ fn get_computed_style_float(
 fn view<Ms: 'static, Suggestion>(
     model: &Model<Ms, Suggestion>,
     suggestion_view: impl Fn(&Suggestion, bool) -> Node<Ms>,
-    attrs: Attrs,
+    input_attrs: Attrs,
+    mut menu_style: Style,
 ) -> Vec<Node<Ms>> {
-    let mut menu_style = style! {
-      St::BorderRadius => "3px",
-      St::BoxShadow => "0 2px 12px rgba(0, 0, 0, 0.1)",
-      St::Background => "rgba(255, 255, 255, 0.9)",
-      St::Padding => "2px 0",
-      St::FontSize => "90%",
-      St::Position => "fixed",
-      St::Overflow => "auto",
-      St::MaxHeight => "50%", // TODO: don't cheat, let it flow to the bottom
-    };
     if let Some(node) = model.input_ref.get() {
         let node: Element = node.into();
         let rect = node.get_bounding_client_rect();
@@ -248,11 +239,11 @@ fn view<Ms: 'static, Suggestion>(
     nodes![
         input![
             el_ref(&model.input_ref),
-            attrs,
+            input_attrs,
             input_ev(Ev::Input, Msg::InputChange),
             // input_ev(Ev::Change, Msg::Change),
-            ev(Ev::Focus, |_| Msg::InputFocus),
-            input_ev(Ev::Blur, |_| Msg::InputBlur),
+            simple_ev(Ev::Focus, Msg::InputFocus),
+            simple_ev(Ev::Blur, Msg::InputBlur),
             keyboard_ev(Ev::KeyDown, Msg::InputKeyDown),
             mouse_ev(Ev::Click, Msg::InputClick),
         ]
@@ -268,13 +259,13 @@ fn view<Ms: 'static, Suggestion>(
                         let mut suggestion_node =
                             suggestion_view(suggestion, Some(idx) == model.highlighted_index);
                         suggestion_node
-                            .add_event_handler(EventHandler::new(Ev::MouseEnter, move |_| {
-                                Some(msg_mapper(Msg::SuggestionHover(idx)))
-                            }));
-                        suggestion_node
-                            .add_event_handler(EventHandler::new(Ev::Click, move |_| {
-                                Some(msg_mapper(Msg::SuggestionClick(idx)))
-                            }));
+                            .add_event_handler(
+                                simple_ev(Ev::MouseEnter, Msg::SuggestionHover(idx))
+                                    .map_msg(msg_mapper),
+                            )
+                            .add_event_handler(
+                                simple_ev(Ev::Click, Msg::SuggestionClick(idx)).map_msg(msg_mapper),
+                            );
                         suggestion_node
                     })
                     .collect::<Vec<_>>(),
