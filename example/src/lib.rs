@@ -103,9 +103,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.search_input_value = value.clone();
             model.search = Some(value);
         }
-        Msg::SearchAutocomplete(msg) => {
-            model.search_autocomplete.update(msg, orders)
-        }
+        Msg::SearchAutocomplete(msg) => model.search_autocomplete.update(msg, orders),
 
         Msg::WeekdayInputChange(value) => {
             let suggestions = model.weekday_search.prefix_iter(&value);
@@ -116,9 +114,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::WeekdaySelected(value) => {
             model.weekday_selected = Some(value);
         }
-        Msg::WeekdayAutocomplete(msg) => {
-            model.weekday_autocomplete.update(msg, orders)
-        }
+        Msg::WeekdayAutocomplete(msg) => model.weekday_autocomplete.update(msg, orders),
 
         Msg::CountryInputChange(value) => {
             if !value.is_empty() {
@@ -134,9 +130,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.country_selected = Some(selection);
             }
         }
-        Msg::CountryAutocomplete(msg) => {
-            model.country_autocomplete.update(msg, orders)
-        }
+        Msg::CountryAutocomplete(msg) => model.country_autocomplete.update(msg, orders),
     }
 }
 

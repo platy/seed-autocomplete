@@ -42,9 +42,7 @@ pub struct Model<Ms, Suggestion = String> {
 }
 
 impl<Ms: 'static, Suggestion: Clone> Model<Ms, Suggestion> {
-    pub fn new(
-        msg_mapper: fn(Msg) -> Ms,
-    ) -> Self {
+    pub fn new(msg_mapper: fn(Msg) -> Ms) -> Self {
         Self {
             msg_mapper,
             input_changed: Box::new(|_| None),
@@ -61,17 +59,20 @@ impl<Ms: 'static, Suggestion: Clone> Model<Ms, Suggestion> {
         }
     }
 
-    pub fn on_input_change(mut self, input_changed: impl Fn(&str) -> Option<Ms> + 'static,) -> Self {
+    pub fn on_input_change(mut self, input_changed: impl Fn(&str) -> Option<Ms> + 'static) -> Self {
         self.input_changed = Box::new(input_changed);
         self
     }
 
-    pub fn on_selection(mut self, suggestion_selected: impl Fn(&Suggestion) -> Option<Ms> + 'static,) -> Self {
+    pub fn on_selection(
+        mut self,
+        suggestion_selected: impl Fn(&Suggestion) -> Option<Ms> + 'static,
+    ) -> Self {
         self.suggestion_selected = Box::new(suggestion_selected);
         self
     }
 
-    pub fn on_submit(mut self, submit: impl Fn() -> Option<Ms> + 'static,) -> Self {
+    pub fn on_submit(mut self, submit: impl Fn() -> Option<Ms> + 'static) -> Self {
         self.submit = Box::new(submit);
         self
     }
@@ -86,11 +87,7 @@ impl<Ms: 'static, Suggestion: Clone> Model<Ms, Suggestion> {
         self.suggestions = suggestions;
     }
 
-    pub fn update(
-        &mut self,
-        msg: Msg,
-        orders: &mut impl Orders<Ms>,
-    ) {
+    pub fn update(&mut self, msg: Msg, orders: &mut impl Orders<Ms>) {
         match msg {
             Msg::InputChange(value) => {
                 (*self.input_changed)(&value).map(|msg| orders.send_msg(msg));
