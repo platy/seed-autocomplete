@@ -60,31 +60,23 @@ enum Msg {
 
 fn init(_: Url, _orders: &mut impl Orders<Msg>) -> Model {
     Model {
-        search_autocomplete: autocomplete::Model::new(
-            Msg::SearchAutocomplete,
-            |s| Msg::SearchInputChange(s.to_owned()),
-            |s: &String| Some(Msg::SearchSelected(s.to_owned())),
-            || Some(Msg::SearchSubmitted),
-        ),
+        search_autocomplete: autocomplete::Model::new(Msg::SearchAutocomplete)
+            .on_input_change(|s| Some(Msg::SearchInputChange(s.to_owned())))
+            .on_selection(|s: &String| Some(Msg::SearchSelected(s.to_owned())))
+            .on_submit(|| Some(Msg::SearchSubmitted)),
         search_previous: TSTSet::new(),
         search: None,
         search_input_value: "".to_owned(),
 
-        weekday_autocomplete: autocomplete::Model::new(
-            Msg::WeekdayAutocomplete,
-            |s| Msg::WeekdayInputChange(s.to_owned()),
-            |s: &String| Some(Msg::WeekdaySelected(s.to_owned())),
-            || None,
-        ),
+        weekday_autocomplete: autocomplete::Model::new(Msg::WeekdayAutocomplete)
+            .on_input_change(|s| Some(Msg::WeekdayInputChange(s.to_owned())))
+            .on_selection(|s: &String| Some(Msg::WeekdaySelected(s.to_owned()))),
         weekday_search: tst::tstset! { "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"},
         weekday_selected: None,
 
-        country_autocomplete: autocomplete::Model::new(
-            Msg::CountryAutocomplete,
-            |s| Msg::CountryInputChange(s.to_owned()),
-            |_| Some(Msg::CountrySelected),
-            || None,
-        ),
+        country_autocomplete: autocomplete::Model::new(Msg::CountryAutocomplete)
+            .on_input_change(|s| Some(Msg::CountryInputChange(s.to_owned())))
+            .on_selection(|_| Some(Msg::CountrySelected)),
         country_search: CountrySearch::default(),
         country_selected: None,
         country_input_value: "".to_owned(),
@@ -112,7 +104,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.search = Some(value);
         }
         Msg::SearchAutocomplete(msg) => {
-            autocomplete::update(msg, &mut model.search_autocomplete, orders)
+            model.search_autocomplete.update(msg, orders)
         }
 
         Msg::WeekdayInputChange(value) => {
@@ -125,7 +117,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.weekday_selected = Some(value);
         }
         Msg::WeekdayAutocomplete(msg) => {
-            autocomplete::update(msg, &mut model.weekday_autocomplete, orders)
+            model.weekday_autocomplete.update(msg, orders)
         }
 
         Msg::CountryInputChange(value) => {
@@ -143,7 +135,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         }
         Msg::CountryAutocomplete(msg) => {
-            autocomplete::update(msg, &mut model.country_autocomplete, orders)
+            model.country_autocomplete.update(msg, orders)
         }
     }
 }
