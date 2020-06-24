@@ -5,7 +5,7 @@ use web_sys::{Element, HtmlInputElement};
 mod view_builder;
 pub use view_builder::{ViewBuilder, ViewBuilderDefault};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Msg {
     InputFocus,
     InputBlur,
@@ -235,23 +235,27 @@ fn view<Ms: 'static, Suggestion>(
     input_attrs: Attrs,
     mut menu_style: Style,
 ) -> Vec<Node<Ms>> {
-    if let Some(node) = model.input_ref.get() {
-        let node: Element = node.into();
-        let rect = node.get_bounding_client_rect();
-        let computed_style = window().get_computed_style(&node).unwrap().unwrap();
-        let margin_bottom = get_computed_style_float(&computed_style, "marginBottom").unwrap_or(0.);
-        let margin_left = get_computed_style_float(&computed_style, "marginLeft").unwrap_or(0.);
-        let margin_right = get_computed_style_float(&computed_style, "marginRight").unwrap_or(0.);
-        menu_style.merge(style! {
-            St::Left => format!("{}px", rect.left() + margin_left),
-            St::Top => format!("{}px", rect.bottom() + margin_bottom),
-            St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
-        });
-    }
+    // if let Some(node) = model.input_ref.get() {
+    //     let node: Element = node.into();
+    //     let rect = node.get_bounding_client_rect();
+    //     let computed_style = window().get_computed_style(&node).unwrap().unwrap();
+    //     let margin_bottom = get_computed_style_float(&computed_style, "marginBottom").unwrap_or(0.);
+    //     let margin_left = get_computed_style_float(&computed_style, "marginLeft").unwrap_or(0.);
+    //     let margin_right = get_computed_style_float(&computed_style, "marginRight").unwrap_or(0.);
+    //     menu_style.merge(style! {
+    //         St::Left => format!("{}px", rect.left() + margin_left),
+    //         St::Top => format!("{}px", rect.bottom() + margin_bottom),
+    //         St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
+    //     });
+    // }
 
     let msg_mapper = model.msg_mapper;
 
-    nodes![
+    nodes![div![
+        style! {
+            St::Display => "inline-block",
+            St::Position => "relative",
+        },
         input![
             el_ref(&model.input_ref),
             input_attrs,
@@ -291,7 +295,7 @@ fn view<Ms: 'static, Suggestion>(
         } else {
             empty![]
         },
-    ]
+    ]]
 }
 
 pub fn default_suggestion_view<Suggestion: ToString, Ms>(

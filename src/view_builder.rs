@@ -17,7 +17,7 @@ pub trait ViewBuilder<'m, Ms: 'static, Suggestion: 'm>: Sized {
           St::FontSize => "90%",
           St::Position => "fixed",
           St::Overflow => "auto",
-          St::MaxHeight => "50%", // TODO: don't cheat, let it flow to the bottom
+        //   St::MaxHeight => "50%", // TODO: don't cheat, let it flow to the bottom
         };
         ViewBuilderDefault {
             model,
