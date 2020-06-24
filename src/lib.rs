@@ -1,6 +1,6 @@
 use seed::prelude::*;
 use seed::*;
-use web_sys::{Element, HtmlInputElement};
+use web_sys::HtmlInputElement;
 
 mod view_builder;
 pub use view_builder::{ViewBuilder, ViewBuilderDefault};
@@ -216,39 +216,12 @@ impl<Ms: 'static, Suggestion: Clone> Model<Ms, Suggestion> {
     }
 }
 
-fn get_computed_style_float(
-    style_declaration: &web_sys::CssStyleDeclaration,
-    key: &str,
-) -> Option<f64> {
-    fn parse(value: String) -> Option<f64> {
-        value.parse().ok()
-    }
-    style_declaration
-        .get_property_value(key)
-        .ok()
-        .and_then(parse)
-}
-
 fn view<Ms: 'static, Suggestion>(
     model: &Model<Ms, Suggestion>,
     suggestion_view: impl Fn(&Suggestion, bool) -> Node<Ms>,
     input_attrs: Attrs,
-    mut menu_style: Style,
+    menu_style: Style,
 ) -> Vec<Node<Ms>> {
-    // if let Some(node) = model.input_ref.get() {
-    //     let node: Element = node.into();
-    //     let rect = node.get_bounding_client_rect();
-    //     let computed_style = window().get_computed_style(&node).unwrap().unwrap();
-    //     let margin_bottom = get_computed_style_float(&computed_style, "marginBottom").unwrap_or(0.);
-    //     let margin_left = get_computed_style_float(&computed_style, "marginLeft").unwrap_or(0.);
-    //     let margin_right = get_computed_style_float(&computed_style, "marginRight").unwrap_or(0.);
-    //     menu_style.merge(style! {
-    //         St::Left => format!("{}px", rect.left() + margin_left),
-    //         St::Top => format!("{}px", rect.bottom() + margin_bottom),
-    //         St::MinWidth => format!("{}px", rect.width() + margin_left + margin_right),
-    //     });
-    // }
-
     let msg_mapper = model.msg_mapper;
 
     nodes![div![
